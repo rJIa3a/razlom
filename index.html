@@ -42,6 +42,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   if (render) return;
 
   const keys = {}, hint = document.getElementById('hint'), dev = document.getElementById('dev'), flash = document.getElementById('flash');
+  let jumpPulse = 0, actionPulse = 0;
   const SPEEDS = [0.1, 0.25, 0.5, 1];
   let play = null, acc = 0, simT = 0, speed = 1, paused = false, stepOnce = false, fps = 60;
   try { const sv = JSON.parse(sessionStorage.getItem('live') || 'null');                     // restore across live reloads
@@ -56,6 +57,8 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (c === 'BracketRight') { speed = SPEEDS[Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + 1)]; return; }
     if (c === 'Escape') { play = null; SCENE.state = null; hint.style.opacity = 1; return; }
     keys[c] = 1;
+    if (c === 'Space') jumpPulse = 1;
+    if (c === 'KeyX' || c === 'KeyJ' || c === 'Enter') actionPulse = 1;
     const dg = /^Digit(\d)$/.exec(c); if (dg) pend.slot = +dg[1] || 10;                     // 1–9, 0 → inp.slot (hotbars)
     if (!play || c === 'KeyR') { play = SIM.spawn(simT); hint.style.opacity = 0; }
     e.preventDefault();
@@ -82,8 +85,8 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (play) {
       acc += dt;
       const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
-        jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, press: ptr.down, click: ptr.click, slot: pend.slot, wheel: pend.wheel };
-      while (acc >= SIM.DT) { SIM.step(play, inp); inp.click = ptr.click = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; acc -= SIM.DT; }
+        jump: keys.Space || jumpPulse, act: keys.KeyX || keys.KeyJ || keys.Enter || actionPulse, px: ptr.x, py: ptr.y, press: ptr.down, click: ptr.click, slot: pend.slot, wheel: pend.wheel };
+      while (acc >= SIM.DT) { SIM.step(play, inp); jumpPulse = actionPulse = 0; inp.click = ptr.click = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; acc -= SIM.DT; }
       if (SIM.outOfPlay && SIM.outOfPlay(play)) play = SIM.respawn ? SIM.respawn(play, simT) : SIM.spawn(simT);
       SCENE.state = play;
     } else SCENE.state = null;
