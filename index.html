@@ -13,7 +13,7 @@ canvas{display:block;width:min(100vw,calc(100vh*var(--ar)));height:auto;aspect-r
 #touch{display:none;position:absolute;inset:auto 0 1% 0;justify-content:space-between;padding:0 4%;pointer-events:none;z-index:5}#touch div{display:flex;gap:12px}#touch button{pointer-events:auto;touch-action:none;background:#17112bcc;color:#ffe93a;border:2px solid #d5cbb7;width:55px;height:48px;font:900 20px Arial}
 @media(pointer:coarse){#touch{display:flex}}
 </style>
-</head><body><canvas id="c"></canvas>
+<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#141026"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Разлом"></head><body><canvas id="c"></canvas>
 <div id="hint">press any key or click to play — arrows / WASD move, Space jump, X action, R restart</div>
 <div id="dev"></div><div id="flash">reloaded</div>
 <button id="shake" style="right:112px" aria-label="Встряска камеры">ТРЯСКА: ВКЛ</button><button id="sound" aria-label="Включить или выключить звук">ЗВУК: ВКЛ</button><div id="paused">ПАУЗА · P</div>
@@ -114,4 +114,4 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const f = ['scene.js', 'sim.js', 'lib.js', 'gl.js', 'assets.js', 'index.html'], st = {};               // keep polling: fixing the error reloads by itself
   setInterval(async () => { for (const x of f) { try { const r = await fetch(x + '?p=' + Date.now(), { method: 'HEAD', cache: 'no-store' }); const m = r.headers.get('last-modified');
     if (st[x] && st[x] !== m) location.reload(); st[x] = m; } catch (e) {} } }, 800); });
-</script></body></html>
+</script><script src="fullscreen.js"></script></body></html>

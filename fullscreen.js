@@ -1,0 +1,17 @@
+(function(){
+ 'use strict';
+ const root=document.documentElement;
+ const style=document.createElement('style');
+ style.textContent=`#display-mode{position:fixed;left:max(12px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top));z-index:8;background:#141026;color:#eee3cf;border:1px solid #8e7ba7;padding:10px 13px;font:700 13px Arial;cursor:pointer}#display-mode:focus-visible{outline:3px solid #ffe93a;outline-offset:3px}#screen-help{max-width:min(380px,80vw);background:#17112b;color:#f0e7d3;border:2px solid #ffe93a;padding:22px;font:16px/1.5 Arial}#screen-help::backdrop{background:#000b}#screen-help h2{font-size:21px;margin:0 0 12px}#screen-help button{padding:10px 18px;background:#ffe93a;color:#17112b;border:0;font-weight:bold;cursor:pointer}#screen-help p{margin:0 0 16px}#screen-help a{color:#ffe93a}@media(display-mode:standalone){#display-mode{display:none}}@media(pointer:coarse){#display-mode{font-size:12px;padding:9px 10px}}`;
+ document.head.appendChild(style);
+ const button=document.createElement('button');button.id='display-mode';button.type='button';button.textContent='⛶ На весь экран';button.setAttribute('aria-label','Открыть игру на весь экран');button.setAttribute('aria-pressed','false');document.body.appendChild(button);
+ const help=document.createElement('dialog');help.id='screen-help';help.setAttribute('aria-labelledby','screen-help-title');help.innerHTML='<h2 id="screen-help-title">Игра без вкладок браузера</h2><p id="screen-help-message"></p><button type="button">Понятно</button>';document.body.appendChild(help);
+ const active=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
+ const standalone=()=>matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches||navigator.standalone===true;
+ function update(){const on=active();button.textContent=on?'⛶ Выйти из полного экрана':'⛶ На весь экран';button.setAttribute('aria-pressed',String(on));button.setAttribute('aria-label',on?'Выйти из полного экрана':'Открыть игру на весь экран');button.hidden=standalone()&&!on;}
+ function explain(){const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);help.querySelector('p').textContent=ios?'В Safari нажми «Поделиться» → «На экран Домой». Если есть переключатель «Открывать как веб-приложение», включи его. Запускай игру с появившегося значка — без адресной строки и вкладок.':'Браузер не разрешил полный экран на этой странице. Открой игровую ссылку в отдельной вкладке Chrome, Edge, Firefox или Safari и нажми кнопку ещё раз.';if(!help.open)help.showModal();}
+ button.addEventListener('pointerdown',e=>e.stopPropagation());button.addEventListener('keydown',e=>e.stopPropagation());
+ button.addEventListener('click',async e=>{e.stopPropagation();try{if(active()){const exit=document.exitFullscreen||document.webkitExitFullscreen;if(exit)await exit.call(document);}else{const enter=root.requestFullscreen||root.webkitRequestFullscreen;if(!enter){explain();return;}await enter.call(root,{navigationUI:'hide'});}update();}catch{explain();}});
+ help.addEventListener('pointerdown',e=>e.stopPropagation());help.addEventListener('keydown',e=>e.stopPropagation());help.querySelector('button').addEventListener('click',()=>help.close());help.addEventListener('close',()=>button.focus());
+ document.addEventListener('fullscreenchange',update);document.addEventListener('webkitfullscreenchange',update);update();
+})();
