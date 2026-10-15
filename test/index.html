@@ -12,10 +12,12 @@ canvas{display:block;width:min(100vw,calc(100vh*var(--ar)));height:auto;aspect-r
 #paused{position:absolute;inset:42% 25% auto;background:#100b22ee;border:3px solid #f1dd35;color:#f1dd35;text-align:center;padding:22px;font:900 30px Arial;z-index:4;display:none}
 #touch{display:none;position:absolute;inset:auto 0 1% 0;justify-content:space-between;padding:0 4%;pointer-events:none;z-index:5}#touch div{display:flex;gap:12px}#touch button{pointer-events:auto;touch-action:none;background:#17112bcc;color:#ffe93a;border:2px solid #d5cbb7;width:55px;height:48px;font:900 20px Arial}
 @media(pointer:coarse){#touch{display:flex}}
+#load-state{position:fixed;inset:25% 12% auto;z-index:12;background:#17112bf5;border:2px solid #ffe93a;color:#eee3cf;padding:22px;text-align:center;font:700 17px/1.5 Arial}#load-state[hidden]{display:none}#load-retry{display:none;margin:14px auto 0;padding:12px 18px;background:#ffe93a;color:#17112b;border:0;font-weight:bold;cursor:pointer}
 </style>
 <link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#141026"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Разлом"></head><body><canvas id="c"></canvas>
 <div id="hint">press any key or click to play — arrows / WASD move, Space jump, X action, R restart</div>
 <div id="dev"></div><div id="flash">reloaded</div>
+<div id="load-state" role="status" aria-live="polite"><span id="load-message">Загрузка игры…</span><button id="load-retry" type="button">Повторить загрузку</button></div>
 <button id="shake" style="right:112px" aria-label="Встряска камеры">ТРЯСКА: ВКЛ</button><button id="sound" aria-label="Включить или выключить звук">ЗВУК: ВКЛ</button><div id="paused">ПАУЗА · P</div>
 <div id="touch"><div><button data-key="ArrowLeft" aria-label="Влево">←</button><button data-key="ArrowRight" aria-label="Вправо">→</button></div><div><button data-key="ArrowUp" aria-label="Подтянуться">⇧</button><button data-key="ArrowDown" aria-label="Присесть или отпустить">↓</button><button data-key="Space" aria-label="Прыжок">↑</button><button data-key="KeyX" aria-label="Перекат">↻</button></div></div>
 
@@ -25,17 +27,21 @@ canvas{display:block;width:min(100vw,calc(100vh*var(--ar)));height:auto;aspect-r
 // Dev keys: P pause, [ ] speed (0.1 / 0.25 / 0.5 / 1), . single step, Esc back to the demo, R restart.
 // ?render=1 exposes window.__renderAt(t) for render.mjs (no loop, no polling).
 const V = Date.now(), STATIC = !!window.__STATIC__;          // STATIC: packed build (no polling, no dev overlay)
-const load = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src + '?v=' + V; s.onload = res; s.onerror = () => rej(new Error('failed ' + src)); document.head.appendChild(s); });
+const loadState=document.getElementById('load-state'),loadMessage=document.getElementById('load-message'),loadRetry=document.getElementById('load-retry');
+function bootFail(error){window.__bootError=String(error?.message||error);loadState.hidden=false;loadMessage.textContent='Не удалось запустить игру. Нажми «Повторить загрузку».';loadRetry.style.display='block';}
+loadRetry.addEventListener('pointerdown',e=>e.stopPropagation());loadRetry.addEventListener('click',()=>{const url=new URL(location.href);url.searchParams.set('renderer','canvas');url.searchParams.set('retry',Date.now());location.replace(url.href);});
+const load = (src) => new Promise((res, rej) => { const s = document.createElement('script'),timer=setTimeout(()=>rej(new Error('Loading timeout: '+src)),30000);s.src=src+'?v='+V;s.onload=()=>{clearTimeout(timer);res();};s.onerror=()=>{clearTimeout(timer);rej(new Error('failed '+src));};document.head.appendChild(s); });
 (async () => {
   // sizes.js: window.SIZES (display size per sprite in view px, engine.md §7); audio.js: sound from the event bus (stub until used)
   for (const f of ['assets.js', 'sizes.js', 'gl.js', 'lib.js', 'sim.js', 'scene.js', 'audio.js']) await load(f);
   const q = new URLSearchParams(location.search), render = q.has('render');
   const VW = (SIM.VIEW || {}).W || 1920, VH = (SIM.VIEW || {}).H || 1080;             // view size and aspect come from the sim
   document.documentElement.style.setProperty('--ar', VW / VH); if (SIM.HINT) document.getElementById('hint').textContent = SIM.HINT;
-  G.init(document.getElementById('c'), VW, VH);
   const rep = new Set(SCENE.REPEAT || []), near = (n) => SCENE.NEAREST === true || (SCENE.NEAREST || []).includes(n);   // NEAREST: true = all
-  await Promise.all(Object.keys(ASSETS).map((n) => G.load(n, 'assets/' + n + '.png?v=' + V, { repeat: rep.has(n), nearest: near(n) })));
-  SCENE.programs();
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  async function startRenderer(canvasMode){if(canvasMode)await load('canvas-compat.js');G.init(document.getElementById('c'),VW,VH);let loaded=0;const names=Object.keys(ASSETS);await Promise.all(names.map(async n=>{let timer;try{await Promise.race([G.load(n,'assets/'+n+'.png?v='+V,{repeat:rep.has(n),nearest:near(n)}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Image timeout: '+n)),30000);})]);loadMessage.textContent=`Загрузка игры… ${Math.round(++loaded/names.length*100)}%`;}finally{clearTimeout(timer);}}));SCENE.programs();}
+  if(ios||q.get('renderer')==='canvas'){await startRenderer(true);}else{try{await startRenderer(false);}catch(error){console.warn('Switching renderer:',error.message);G.gl?.getExtension('WEBGL_lose_context')?.loseContext();const old=document.getElementById('c');old.replaceWith(old.cloneNode());await startRenderer(true);}}
+  loadState.hidden=true;
   window.__duration = SIM.L;
   window.__renderAt = (t) => { SCENE.render(t); return document.getElementById('c').toDataURL('image/png'); };
   window.__ready = true;
@@ -94,7 +100,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
       if (SIM.outOfPlay && SIM.outOfPlay(play)) play = SIM.respawn ? SIM.respawn(play, simT) : SIM.spawn(simT);
       SCENE.state = play;
     } else SCENE.state = null;
-    try { SCENE.render(simT); } catch (e) { if (!window.__renderErr) { window.__renderErr = e; console.error(e); } }   // log once, keep the loop alive
+    try { SCENE.render(simT); } catch (e) { if (!window.__renderErr) { window.__renderErr = e; console.error(e); bootFail(e); } }
     if (!STATIC) dev.style.display = (paused || speed !== 1 || q.has('dev')) ? 'block' : 'none';   // debug line only when paused / slowed or with ?dev
     if (!STATIC) dev.textContent = `LIVE  ${play ? 'play' : 'demo'}  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  Esc demo  R restart`;
     requestAnimationFrame(loop);
@@ -110,7 +116,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     setTimeout(poll, 700);
   };
   poll();
-})().catch((e) => { console.error(e); document.body.insertAdjacentHTML('beforeend', '<pre style="color:#f88;position:absolute;top:0;left:0;background:#000c;padding:12px;font:13px monospace;white-space:pre-wrap">' + e.stack + '</pre>');
+})().catch((e) => { console.error(e); bootFail(e); if(STATIC)return;
   const f = ['scene.js', 'sim.js', 'lib.js', 'gl.js', 'assets.js', 'index.html'], st = {};               // keep polling: fixing the error reloads by itself
   setInterval(async () => { for (const x of f) { try { const r = await fetch(x + '?p=' + Date.now(), { method: 'HEAD', cache: 'no-store' }); const m = r.headers.get('last-modified');
     if (st[x] && st[x] !== m) location.reload(); st[x] = m; } catch (e) {} } }, 800); });
