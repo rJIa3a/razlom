@@ -1,0 +1,151 @@
+{
+ "states": {
+  "match": {
+   "ui": 10,
+   "anchors": []
+  },
+  "crouch": {
+   "ui": 10,
+   "anchors": []
+  },
+  "roll": {
+   "ui": 10,
+   "anchors": []
+  },
+  "hang": {
+   "ui": 10,
+   "anchors": [
+    {
+     "name": "grip",
+     "sim": [
+      700,
+      430
+     ],
+     "drawn": [
+      700,
+      430
+     ],
+     "tol": 1,
+     "d": 0
+    }
+   ]
+  },
+  "pipe": {
+   "ui": 10,
+   "anchors": [
+    {
+     "name": "grip",
+     "sim": [
+      960,
+      210
+     ],
+     "drawn": [
+      960,
+      210
+     ],
+     "tol": 1,
+     "d": 0
+    }
+   ]
+  },
+  "climb": {
+   "ui": 10,
+   "anchors": [
+    {
+     "name": "grip",
+     "sim": [
+      700,
+      430
+     ],
+     "drawn": [
+      700,
+      430
+     ],
+     "tol": 1,
+     "d": 0
+    }
+   ]
+  },
+  "jump": {
+   "ui": 10,
+   "anchors": []
+  },
+  "fall": {
+   "ui": 10,
+   "anchors": []
+  },
+  "landing_second": {
+   "ui": 10,
+   "anchors": []
+  }
+ },
+ "cycles": {
+  "hero_right": {
+   "legs": 1,
+   "body": 1,
+   "masked": true
+  },
+  "hero_left": {
+   "legs": 1,
+   "body": 1,
+   "masked": true
+  }
+ },
+ "rig": {
+  "hero_right": {
+   "H": 200,
+   "rigidRes": 0.2187,
+   "move": 0.421,
+   "slide": 0,
+   "ground": 0,
+   "lift": 0.135,
+   "limp": 0,
+   "bob": 0.0251,
+   "stride": 0.361,
+   "kneeL": 18.3,
+   "stretchL": 0,
+   "shortL": 1,
+   "kneeMaxL": 25,
+   "kneeR": 18.3,
+   "stretchR": 0,
+   "shortR": 1,
+   "kneeMaxR": 25,
+   "tipDig": -93.5,
+   "armL": -1,
+   "armR": -1
+  },
+  "hero_left": {
+   "H": 200,
+   "rigidRes": 0.2187,
+   "move": 0.421,
+   "slide": 0,
+   "ground": 0,
+   "lift": 0.135,
+   "limp": 0,
+   "bob": 0.0251,
+   "stride": 0.361,
+   "kneeL": 18.3,
+   "stretchL": 0,
+   "shortL": 1,
+   "kneeMaxL": 25,
+   "kneeR": 18.3,
+   "stretchR": 0,
+   "shortR": 1,
+   "kneeMaxR": 25,
+   "tipDig": -93.5,
+   "armL": -1,
+   "armR": -1
+  }
+ },
+ "anim": {
+  "steam": {
+   "on": 0.04,
+   "off": 0
+  }
+ },
+ "fails": [],
+ "warns": [
+  "hero_right: pixel limb-motion ratio low (100.0% vs 100.0%) — the joint trace measures this cycle (rig checks)",
+  "hero_left: pixel limb-motion ratio low (100.0% vs 100.0%) — the joint trace measures this cycle (rig checks)"
+ ]
+}

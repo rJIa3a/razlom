@@ -1,66 +1,37 @@
 (function(root){
-  'use strict';
-  const DT=1/120, VIEW={W:1440,H:900}, L=48, STRIDE=1340, FLOOR=710;
-  const PANELS=[{name:'МЁРТВЫЙ ГОРОД',caption:'Нью-Йорк. После полуночи.',bg:'bg_rooftop',enemies:[620,970]}, {name:'ПОД ГОРОДОМ',caption:'Внизу кто-то ждёт...',bg:'bg_sewer',enemies:[510,790,1050]}, {name:'СЕРДЦЕ ФАБРИКИ',caption:'Последняя страница этой ночи.',bg:'bg_factory',enemies:[550,850,1090]}];
-  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), mix=(a,b,t)=>a+(b-a)*t, ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
-  const groundY=panel=>[710,650,632][panel];
-  function actors(panel){return PANELS[panel].enemies.map((x,i)=>({id:'enemy'+i,x:x+panel*STRIDE,y:groundY(panel),vx:0,face:-1,hp:panel===2&&i===2?100:65,maxhp:panel===2&&i===2?100:65,attack:0,cd:.7+i*.45,hurt:0,dead:0,gait:0,move:0,target:0}));}
-  function create(){return {t:0,steps:0,wt0:0,panel:0,x:290,y:FLOOR,vx:0,vy:0,face:1,hp:100,attack:0,attackKind:0,cd:0,hurt:0,inv:0,combo:0,score:0,kills:0,gait:0,move:0,cam:0,ev:[],freeze:0,transition:null,won:false,gameover:false,enemies:actors(0),barrels:[{x:460,hp:2},{x:1130,hp:2}],heal:[],clearAt:0,jumpHeld:false,hit:false,shake:0};}
-  function emit(S,k,x,y,extra={}){S.ev.push(Object.assign({k,t:S.t,x,y},extra));if(S.ev.length>80)S.ev.shift();}
-  const spawn=wt=>Object.assign(create(),{wt0:wt});
-  function hand(S){return [S.x+S.face*104,S.y-115];}
-  function beginTransition(S){S.transition={t:0,from:S.panel,start:S.x,grip:[S.panel*STRIDE+1338,490]};S.attack=0;S.vy=0;emit(S,'vault',S.x,S.y-130);}
-  function transitionPose(tr){const p=tr.t,edge=tr.from*STRIDE+1338,dest=(tr.from+1)*STRIDE+270;let x,y;
-    if(p<.35){const q=ease(p/.35);x=mix(tr.start,edge-57,q);y=mix(groundY(tr.from),615,q);}
-    else if(p<.85){const q=ease((p-.35)/.5);x=edge-57+q*22;y=mix(615,548,q);}
-    else{const q=clamp((p-.85)/1.05,0,1);x=mix(edge-35,dest,ease(q));y=mix(548,groundY(tr.from+1),q)-145*Math.sin(q*Math.PI);}
-    return {x,y,grip:p>=.26&&p<.83?tr.grip:null,phase:p};}
-  function step(S,inp){S.t+=DT;S.steps++;
-    if(S.won||S.gameover)return S;
-    S.inv=Math.max(0,S.inv-DT);S.hurt=Math.max(0,S.hurt-DT);S.cd=Math.max(0,S.cd-DT);
-    if(S.freeze>0){S.freeze-=DT;return S;}
-    if(S.transition){const tr=S.transition;tr.t+=DT;const pose=transitionPose(tr);S.x=pose.x;S.y=pose.y;S.face=1;S.move=0;
-      S.cam=mix(tr.from*STRIDE,(tr.from+1)*STRIDE,ease((tr.t-.4)/1.3));
-      if(tr.t>=1.9){S.panel++;S.transition=null;S.x=S.panel*STRIDE+270;S.y=groundY(S.panel);S.cam=S.panel*STRIDE;S.enemies=actors(S.panel);S.barrels=[{x:S.panel*STRIDE+425,hp:2},{x:S.panel*STRIDE+1150,hp:2}];S.heal=[];S.clearAt=0;emit(S,'land',S.x,S.y);emit(S,'page',S.x,S.y);}
-      return S;
-    }
-    const ground=groundY(S.panel);if(S.y>ground)S.y=ground;
-    const dir=(inp.right?1:0)-(inp.left?1:0), grounded=S.y>=ground-.01;
-    const target=dir*(S.attack>0?100:305);S.vx=mix(S.vx,target,1-Math.exp(-DT*20));
-    if(dir&&!S.attack)S.face=dir;
-    S.x=clamp(S.x+S.vx*DT,S.panel*STRIDE+155,S.panel*STRIDE+1280);
-    S.move=mix(S.move,Math.abs(S.vx)>30&&grounded?1:0,1-Math.exp(-DT*12));S.gait+=S.vx*DT/23;
-    if(inp.jump&&!S.jumpHeld&&grounded){
-      if(S.enemies.every(e=>e.hp<=0)&&S.x>S.panel*STRIDE+1190){if(S.panel<2)beginTransition(S);else {S.won=true;emit(S,'win',S.x,S.y);}}
-      else{S.vy=-710;emit(S,'jump',S.x,S.y);}
-    }
-    S.jumpHeld=!!inp.jump;
-    if(S.transition)return S;
-    if(!grounded||S.vy){S.vy+=1800*DT;S.y+=S.vy*DT;if(S.y>=ground){S.y=ground;S.vy=0;emit(S,'land',S.x,S.y);}}
-    if(inp.act&&S.cd<=0){S.attack=.36;S.cd=.4;S.hit=false;S.attackKind=S.combo++%3;emit(S,'swing',S.x+S.face*70,S.y-100);}
-    if(S.attack>0){const before=S.attack;S.attack=Math.max(0,S.attack-DT);
-      if(before>.19&&S.attack<=.19&&!S.hit){S.hit=true;let did=false;
-        for(const e of S.enemies){if(e.hp>0&&Math.abs(e.x-S.x)<145&&(e.x-S.x)*S.face>-20&&Math.abs(e.y-S.y)<145){const damage=S.attackKind===2?33:24;e.hp=Math.max(0,e.hp-damage);e.hurt=.3;e.vx=S.face*480;e.attack=0;e.cd=.7;S.score+=75;did=true;emit(S,'hit',e.x,e.y-115,{face:S.face,kind:S.attackKind});if(!e.hp){S.kills++;S.score+=200;e.dead=.001;emit(S,'kill',e.x,e.y-90);}}}
-        for(const b of S.barrels){if(b.hp>0&&Math.abs(b.x-S.x)<140&&(b.x-S.x)*S.face>-15&&Math.abs(S.y-ground)<100){b.hp--;did=true;emit(S,'break',b.x,ground-45);if(!b.hp){S.heal.push({x:b.x,y:ground-26,taken:false});S.score+=50;}}}
-        if(did)S.freeze=.055;
-      }
-    }
-    S.heal.forEach(h=>{if(!h.taken&&Math.abs(h.x-S.x)<50&&Math.abs(S.y-ground)<50){h.taken=true;S.hp=Math.min(100,S.hp+24);emit(S,'heal',S.x,S.y-100);}});
-    for(const e of S.enemies){e.y=ground;e.hurt=Math.max(0,e.hurt-DT);e.cd=Math.max(0,e.cd-DT);
-      if(e.hp<=0){e.dead+=DT;e.x+=e.vx*DT;e.vx*=Math.exp(-DT*8);continue;}
-      const d=S.x-e.x;e.face=d>=0?1:-1;
-      if(e.hurt>0){e.x+=e.vx*DT;e.vx*=Math.exp(-DT*9);}
-      else if(e.attack>0){const prev=e.attack;e.attack=Math.max(0,e.attack-DT);if(prev>.12&&e.attack<=.12&&Math.abs(d)<112&&S.y>ground-95&&S.inv<=0){S.hp=Math.max(0,S.hp-9);S.inv=.75;S.hurt=.22;S.x=clamp(S.x+e.face*23,S.panel*STRIDE+155,S.panel*STRIDE+1280);emit(S,'hurt',S.x,S.y-110);S.freeze=.045;if(S.hp===0){S.gameover=true;emit(S,'lose',S.x,S.y);}}}
-      else if(Math.abs(d)>86){e.vx=e.face*(92+S.panel*14);e.x+=e.vx*DT;e.gait+=e.vx*DT/21;}
-      else if(e.cd<=0){e.attack=.48;e.cd=1.2;emit(S,'enemySwing',e.x,e.y-100);}
-      e.x=clamp(e.x,S.panel*STRIDE+150,S.panel*STRIDE+1280);e.move=mix(e.move,Math.abs(d)>86&&!e.hurt&&!e.attack?1:0,1-Math.exp(-DT*12));
-    }
-    if(S.enemies.every(e=>e.hp<=0)&&!S.clearAt){S.clearAt=S.t;emit(S,'clear',S.panel*STRIDE+1220,520);}
-    return S;
-  }
-  function scriptInput(t,S){if(S.transition)return {};const alive=S.enemies.filter(e=>e.hp>0).sort((a,b)=>Math.abs(a.x-S.x)-Math.abs(b.x-S.x));if(alive.length){const d=alive[0].x-S.x;return {left:d<-92,right:d>92,act:true,jump:false};}return {right:true,act:true,jump:S.x>S.panel*STRIDE+1200&&Math.floor(t*4)%2===0};}
-  let cache=null;function at(t){const loop=Math.floor(t/L),q=t-loop*L,n=Math.round(q/DT);if(!cache||cache.loop!==loop||cache.S.steps>n)cache={loop,S:spawn(loop*L)};while(cache.S.steps<n)step(cache.S,scriptInput(cache.S.t,cache.S));return Object.assign({},cache.S,{loop,q});}
-  function selfCheck(){const errors=[];for(const p of PANELS)for(const x of p.enemies)if(x<150||x>1280)errors.push('Enemy outside panel');const S=create();for(let i=0;i<120*48;i++)step(S,scriptInput(S.t,S));if(!S.won)errors.push('Demo did not complete episode: panel '+S.panel);if(S.hp<=0)errors.push('Demo died');return errors;}
-  root.SIM={DT,L,VIEW,PANELS,STRIDE,FLOOR,groundY,create,spawn,step,at,hand,transitionPose,scriptInput,selfCheck,demoCheck:S=>S.won,HINT:'← → / A D — движение   ·   ПРОБЕЛ — прыжок / переход   ·   X / J — удар   ·   P — пауза   ·   R — заново'};
-  if(typeof module!=='undefined')module.exports=root.SIM;
+ 'use strict';
+ const DT=1/120,VIEW={W:1440,H:900},FLOOR=710,STRIDE=1280,L=38;
+ const PANELS=[{name:'ПРОБУЖДЕНИЕ НА СТРАНИЦЕ',caption:'Первый кадр. Найди путь наверх.',bg:'bg_command_v2'},{name:'СЛЕДУЮЩАЯ СТРАНИЦА',caption:'Приземление. Продолжение впереди.',bg:'bg_rooftop'}];
+ const SOLIDS=[{id:'step',x:400,y:650,w:80,h:60},{id:'ceiling',x:535,y:550,w:100,h:22},{id:'ledge',x:700,y:430,w:145,h:26}];
+ const PIPE={x:850,x2:1140,y:210},clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),mix=(a,b,t)=>a+(b-a)*t,ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
+ const height=s=>s.mode==='roll'?138:s.mode==='crouch'?108:192,solids=s=>s.panel===0?SOLIDS:[];
+ function create(){return {version:2,t:0,steps:0,wt0:0,panel:0,x:250,y:FLOOR,vx:0,vy:0,face:1,mode:'idle',gait:0,move:0,cam:0,ev:[],jumpHeld:false,actHeld:false,upHeld:false,downHeld:false,grounded:true,ground:FLOOR,grip:null,climb:null,roll:0,grabCooldown:0,transition:null,transitionCount:0,landedSecond:false,shakeEnabled:true,fx:true,learn:{jump:false,crouch:false,roll:false,ledge:false,climb:false,pipe:false,shimmy:false,drop:false},enemies:[],barrels:[],heal:[],hp:100,score:0,clearAt:1,attack:0,hurt:0};}
+ const spawn=t=>Object.assign(create(),{wt0:t}),emit=(s,k,x=s.x,y=s.y,extra={})=>{s.ev.push({k,t:s.t,x,y,...extra});s.ev=s.ev.filter(e=>s.t-e.t<1.2).slice(-48);};
+ function overlap(x,y,w,h,b){return x<b.x+b.w&&x+w>b.x&&y<b.y+b.h&&y+h>b.y;}
+ const free=(s,x,y,h=192)=>!solids(s).some(b=>overlap(x-23,y-h,46,h-.5,b));
+ function transitionPose(tr){const p=tr.t,edge=1338;let x,y;if(p<.35){const q=ease(p/.35);x=mix(tr.start,edge-57,q);y=mix(FLOOR,615,q);}else if(p<.85){const q=ease((p-.35)/.5);x=edge-57+q*22;y=mix(615,548,q);}else{const q=clamp((p-.85)/1.05,0,1);x=mix(edge-35,STRIDE+270,ease(q));y=mix(548,FLOOR,q)-145*Math.sin(q*Math.PI);}return {x,y,grip:p>=.26&&p<.83?tr.grip:null,phase:p};}
+ function moveX(s,dx){const h=height(s),rad=s.mode==='roll'?50:23,old=s.x;s.x+=dx;for(const b of solids(s))if(overlap(s.x-rad,s.y-h,rad*2,h-.5,b)){s.x=dx>0?b.x-rad:b.x+b.w+rad;s.vx=0;}s.x=clamp(s.x,s.panel*STRIDE+150,s.panel*STRIDE+1285);return s.x-old;}
+ function drop(s){s.grip=null;s.climb=null;s.mode='fall';s.grounded=false;s.vy=40;s.grabCooldown=.4;emit(s,'drop',s.x,s.y-180);s.learn.drop=true;}
+ function step(s,i={}){
+  if(s.y>980){const p=s.panel,wt=s.wt0,t=s.t;Object.assign(s,create(),{panel:p,x:p*STRIDE+250,wt0:wt,t,cam:p*STRIDE});emit(s,'respawn');return s;}
+  s.t+=DT;s.steps++;s.grabCooldown=Math.max(0,s.grabCooldown-DT);
+  const jump=!!i.jump&&!s.jumpHeld,act=!!i.act&&!s.actHeld,up=!!i.up&&!s.upHeld,down=!!i.down&&!s.downHeld,dir=(i.right?1:0)-(i.left?1:0);
+  s.jumpHeld=!!i.jump;s.actHeld=!!i.act;s.upHeld=!!i.up;s.downHeld=!!i.down;
+  if(s.transition){s.transition.t+=DT;const pose=transitionPose(s.transition);s.x=pose.x;s.y=pose.y;s.cam=STRIDE*ease((s.transition.t-.4)/1.3);if(s.transition.t>=1.9){s.transition=null;s.grip=null;s.panel=1;s.x=STRIDE+270;s.y=FLOOR;s.vx=s.vy=0;s.mode='idle';s.grounded=true;s.ground=FLOOR;s.cam=STRIDE;s.landedSecond=true;emit(s,'land',s.x,FLOOR,{v:720});}return s;}
+  if(s.climb){const q=ease((s.t-s.climb.start)/.65);s.x=mix(s.climb.fromX,s.climb.toX,q);s.y=mix(s.climb.fromY,s.climb.toY,q);s.mode='climb';if(q>=1){s.climb=null;s.grip=null;s.grounded=true;s.ground=s.y;s.mode='idle';s.learn.climb=true;emit(s,'land',s.x,s.y,{v:100});}return s;}
+  if(s.grip){s.vx=s.vy=0;s.move=0;s.mode=s.grip.kind==='pipe'?'pipe':'hang';if(down){drop(s);return s;}if(s.grip.kind==='pipe'){const old=s.x;s.x=clamp(s.x+dir*135*DT,PIPE.x+20,PIPE.x2-20);s.grip.x=s.x;s.y=PIPE.y+246;s.gait+=Math.abs(s.x-old)/18;if(dir){s.face=dir;s.learn.shimmy=true;}if(jump)drop(s);return s;}if(up){const b=SOLIDS.find(b=>b.id===s.grip.id),toX=s.grip.edge==='left'?b.x+43:b.x+b.w-43;if(free(s,toX,b.y)){s.climb={start:s.t,fromX:s.x,fromY:s.y,toX,toY:b.y};s.mode='climb';emit(s,'climb',s.grip.x,s.grip.y);}}return s;}
+  if(s.panel===0&&s.x>1205&&s.grounded&&dir===1&&jump){s.transition={t:0,start:s.x,from:0,grip:[1338,490]};s.transitionCount++;s.mode='vault';s.grounded=false;s.vx=s.vy=0;emit(s,'vault',s.x,s.y-140);return s;}
+  const oldMode=s.mode;
+  if(s.roll>0){s.roll-=DT;s.mode='roll';s.vx=s.face*470;s.learn.roll=true;}else if(s.grounded&&i.down){s.mode='crouch';s.learn.crouch=true;if(act){s.roll=.46;s.mode='roll';emit(s,'roll');}}else if(s.grounded){s.mode=free(s,s.x,s.y)?dir?'run':'idle':'crouch';}
+  if(s.mode!=='roll'){const speed=s.mode==='crouch'?105:320,acc=s.grounded?2300:640,target=dir*speed;s.vx+=clamp(target-s.vx,-acc*DT,acc*DT);if(s.grounded&&!dir)s.vx*=Math.exp(-14*DT);if(dir&&s.face!==dir&&s.grounded)emit(s,'turn');if(dir)s.face=dir;}
+  if(jump&&s.grounded&&s.mode!=='roll'&&s.mode!=='crouch'&&free(s,s.x,s.y)){s.vy=-750;s.grounded=false;s.mode='jump';s.learn.jump=true;emit(s,'jump');}
+  const oldX=s.x,oldY=s.y,dx=moveX(s,s.vx*DT);s.gait+=Math.abs(dx)/23;s.move=mix(s.move,s.grounded&&s.mode==='run'?1:0,1-Math.exp(-DT*12));
+  if(!s.grounded||s.vy!==0){s.vy+=1650*DT;s.y+=s.vy*DT;let landed=false;for(const b of solids(s)){if(s.x+22>b.x&&s.x-22<b.x+b.w){if(s.vy>=0&&oldY<=b.y+.5&&s.y>=b.y){s.y=b.y;landed=true;s.ground=b.y;}else if(s.vy<0&&oldY-height(s)>=b.y+b.h-.5&&s.y-height(s)<=b.y+b.h){s.y=b.y+b.h+height(s);s.vy=0;}}}if(s.y>=FLOOR&&s.vy>=0){s.y=FLOOR;landed=true;s.ground=FLOOR;}if(landed){const v=s.vy;s.vy=0;s.grounded=true;s.mode=i.down?'crouch':dir?'run':'idle';emit(s,'land',s.x,s.y,{v});}else{s.grounded=false;s.mode=s.vy<0?'jump':'fall';}}else{const support=s.y>=FLOOR-.5||solids(s).some(b=>Math.abs(s.y-b.y)<1&&s.x+20>b.x&&s.x-20<b.x+b.w);if(!support){s.grounded=false;s.mode='fall';}}
+  if(s.panel===0&&!s.grounded&&s.grabCooldown<=0&&!i.down){const fromX=s.x,fromY=s.y,handY=s.y-220;if(s.x+s.face*35>=PIPE.x&&s.x+s.face*35<=PIPE.x2&&Math.abs(handY-PIPE.y)<24){s.x=clamp(s.x,PIPE.x+20,PIPE.x2-20);s.y=PIPE.y+246;s.grip={kind:'pipe',x:s.x,y:PIPE.y,fromX,fromY,t:s.t};s.mode='pipe';s.vx=s.vy=0;s.learn.pipe=true;emit(s,'grab',s.x,PIPE.y);}else for(const b of SOLIDS.filter(b=>b.id==='ledge')){const edge=s.face===1?b.x:b.x+b.w;if(Math.abs(s.x+s.face*36-edge)<25&&Math.abs(handY-b.y)<28&&free(s,edge-s.face*28,b.y+246)){s.x=edge-s.face*28;s.y=b.y+246;s.grip={kind:'ledge',id:b.id,x:edge,y:b.y,edge:s.face===1?'left':'right',fromX,fromY,t:s.t};s.vx=s.vy=0;s.grounded=false;s.mode='hang';s.learn.ledge=true;emit(s,'grab',edge,b.y);break;}}}
+  if(s.grounded&&Math.abs(s.x-oldX)>1&&s.steps%13===0)emit(s,s.mode==='roll'?'rollDust':'step',s.x,s.y);if(oldMode==='roll'&&s.mode!=='roll'&&!free(s,s.x,s.y))s.mode='crouch';
+  if(s.y>980){const p=s.panel,t=s.t,wt=s.wt0,tr=s.transitionCount;Object.assign(s,create(),{panel:p,x:p*STRIDE+250,t,steps:Math.round(t/DT),wt0:wt,cam:p*STRIDE,transitionCount:tr,landedSecond:p===1});emit(s,'respawn');}return s;
+ }
+ function hint(s){if(s.panel)return 'Второй кадр: бег и прыжок. R — заново.';if(s.mode==='hang')return '↑ — подтянуться   ↓ — отпустить';if(s.mode==='pipe')return '← → — по трубе   ↓ — отпустить';if(s.x>1190)return '→ + ПРОБЕЛ — в следующий кадр';if(s.x<385)return 'ПРОБЕЛ — прыжок. ↓ — присесть. ↓ + X — перекат.';if(s.x<650)return 'Под низким потолком: ↓. Для переката: ↓ + X.';if(s.x<870)return 'Прыгни к краю уступа. Затем ↑ — подтянуться.';return 'Прыгни к трубе. ← → — двигаться в висе.';}
+ let cache=null;function at(t){const n=Math.round((t%L)/DT);if(!cache||cache.steps>n)cache=create();while(cache.steps<n)step(cache,{});return {...cache};}
+ root.SIM={DT,VIEW,FLOOR,STRIDE,L,PANELS,SOLIDS,PIPE,create,spawn,step,at,hint,height,free,transitionPose,groundY:()=>FLOOR,HINT:'← → движение · ПРОБЕЛ прыжок · ↓ присед · ↓ + X перекат · ↑ подтянуться · ↓ отпустить',selfCheck:()=>[]};if(typeof module!=='undefined')module.exports=root.SIM;
 })(typeof window!=='undefined'?window:globalThis);

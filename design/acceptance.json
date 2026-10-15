@@ -1,0 +1,20 @@
+{
+  "route": true,
+  "learn": {
+    "jump": true,
+    "crouch": true,
+    "roll": true,
+    "ledge": true,
+    "climb": true,
+    "pipe": true,
+    "shimmy": true,
+    "drop": true
+  },
+  "secondPanel": true,
+  "transitionCount": 1,
+  "heldJumpNoRepeat": true,
+  "headClearance": true,
+  "rollCollision": true,
+  "reachLimited": true,
+  "fallRespawn": true
+}

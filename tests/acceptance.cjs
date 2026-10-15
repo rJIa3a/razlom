@@ -1,0 +1,22 @@
+const assert=require('assert/strict'),SIM=require('../sim.js');
+const step=(s,i={},n=1)=>{for(let j=0;j<n;j++)SIM.step(s,i);return s;};
+const s=SIM.create();
+// Continuous route: jump the obstacle, duck/roll through the low beam, climb, shimmy and vault.
+step(s,{right:true},42);assert(s.x>330&&s.x<380);
+step(s,{right:true,jump:true},22);step(s,{right:true},80);assert(s.x>=480&&s.x<=635);
+step(s,{down:true},25);step(s,{right:true,down:true,act:true},70);assert(s.learn.roll);assert(s.x>635);
+step(s,{right:true},1);step(s,{right:true,jump:true},1);
+for(let i=0;i<140&&!s.grip;i++)SIM.step(s,{right:true});
+assert.equal(s.mode,'hang');step(s,{up:true});step(s,{},90);assert(s.learn.climb);assert.equal(s.y,430);
+step(s,{right:true},33);step(s,{right:true,jump:true});for(let i=0;i<180&&!s.grip;i++)SIM.step(s,{right:true});
+assert.equal(s.mode,'pipe');step(s,{right:true},180);assert(s.learn.shimmy);step(s,{down:true});step(s,{},100);assert(s.grounded);assert.equal(s.y,710);
+step(s,{right:true},90);assert(s.x>1205);step(s,{right:true,jump:true});assert(s.transition);assert.equal(s.grounded,false);
+step(s,{right:true,jump:true,up:true,down:true,act:true},260);assert.equal(s.panel,1);assert.equal(s.transitionCount,1);assert(s.landedSecond);assert.equal(s.y,710);
+assert(Object.values(s.learn).every(Boolean));
+const hold=SIM.create();step(hold,{jump:true},260);assert.equal(hold.ev.filter(e=>e.k==='jump').length,1);assert(hold.grounded);assert.equal(hold.y,710);
+const ceiling=SIM.create();ceiling.x=570;ceiling.mode='crouch';step(ceiling,{},10);assert.equal(ceiling.mode,'crouch');assert(SIM.height(ceiling)===108);
+const wall=SIM.create();wall.x=340;step(wall,{down:true,act:true,right:true},48);assert(wall.x<=350);
+const reach=SIM.create();reach.x=580;step(reach,{jump:true},25);assert.equal(reach.grip,null);
+const drop=SIM.create();drop.y=1200;SIM.step(drop,{});assert.equal(drop.y,710);assert.equal(drop.x,250);
+const report={route:true,learn:s.learn,secondPanel:true,transitionCount:s.transitionCount,heldJumpNoRepeat:true,headClearance:true,rollCollision:true,reachLimited:true,fallRespawn:true};
+require('fs').writeFileSync('design/acceptance.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));

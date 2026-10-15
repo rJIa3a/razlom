@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Разлом — Ночь мутантов</title>
+<html lang="ru"><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Разлом v2 — движение по странице</title>
 <style>
 :root{--ar:1.7778}
 html,body{margin:0;background:#000;height:100%;overflow:hidden}
@@ -16,9 +16,9 @@ canvas{display:block;width:min(100vw,calc(100vh*var(--ar)));height:auto;aspect-r
 </head><body><canvas id="c"></canvas>
 <div id="hint">press any key or click to play — arrows / WASD move, Space jump, X action, R restart</div>
 <div id="dev"></div><div id="flash">reloaded</div>
-<button id="sound" aria-label="Включить или выключить звук">ЗВУК: ВКЛ</button><div id="paused">ПАУЗА · P</div>
-<div id="touch"><div><button data-key="ArrowLeft" aria-label="Влево">←</button><button data-key="ArrowRight" aria-label="Вправо">→</button></div><div><button data-key="Space" aria-label="Прыжок">↑</button><button data-key="KeyX" aria-label="Удар">X</button></div></div>
-<script>window.__STATIC__ = 1;</script>
+<button id="shake" style="right:112px" aria-label="Встряска камеры">ТРЯСКА: ВКЛ</button><button id="sound" aria-label="Включить или выключить звук">ЗВУК: ВКЛ</button><div id="paused">ПАУЗА · P</div>
+<div id="touch"><div><button data-key="ArrowLeft" aria-label="Влево">←</button><button data-key="ArrowRight" aria-label="Вправо">→</button></div><div><button data-key="ArrowUp" aria-label="Подтянуться">⇧</button><button data-key="ArrowDown" aria-label="Присесть или отпустить">↓</button><button data-key="Space" aria-label="Прыжок">↑</button><button data-key="KeyX" aria-label="Перекат">↻</button></div></div>
+
 <script>
 // LIVE PREVIEW. Scripts and images load with a cache-buster; the page polls its sources and reloads itself when any of
 // them changes, keeping the play state (sessionStorage). Attract demo until a key or click, then play (keyboard + pointer).
@@ -42,13 +42,13 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   if (render) return;
 
   const keys = {}, hint = document.getElementById('hint'), dev = document.getElementById('dev'), flash = document.getElementById('flash');
-  let jumpPulse = 0, actionPulse = 0;
+  let jumpPulse = 0, actionPulse = 0, upPulse = 0, downPulse = 0;
   const SPEEDS = [0.1, 0.25, 0.5, 1];
   let play = null, acc = 0, simT = 0, speed = 1, paused = false, stepOnce = false, fps = 60;
-  try { const sv = JSON.parse(sessionStorage.getItem('live') || 'null');                     // restore across live reloads
+  try { const sv = JSON.parse(sessionStorage.getItem('motion-v2') || 'null');                     // restore across live reloads
     if (sv) { simT = sv.simT; speed = sv.speed; paused = sv.paused; if (sv.play) { play = Object.assign(SIM.create(), sv.play); hint.style.opacity = 0; }
       flash.style.opacity = 1; setTimeout(() => (flash.style.opacity = 0), 1200); } } catch (e) {}
-  const save = () => { try { sessionStorage.setItem('live', JSON.stringify({ simT, speed, paused, play })); } catch (e) {} };
+  const save = () => { try { sessionStorage.setItem('motion-v2', JSON.stringify({ simT, speed, paused, play })); } catch (e) {} };
   addEventListener('keydown', (e) => {
     const c = e.code;
     if (c === 'KeyP') { paused = !paused; document.getElementById('paused').style.display=paused?'block':'none'; e.preventDefault(); return; }
@@ -58,6 +58,8 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (c === 'Escape') { play = null; SCENE.state = null; hint.style.opacity = 1; return; }
     keys[c] = 1;
     if (c === 'Space') jumpPulse = 1;
+    if(c==='ArrowUp'||c==='KeyW')upPulse=1;
+    if(c==='ArrowDown'||c==='KeyS')downPulse=1;
     if (c === 'KeyX' || c === 'KeyJ' || c === 'Enter') actionPulse = 1;
     const dg = /^Digit(\d)$/.exec(c); if (dg) pend.slot = +dg[1] || 10;                     // 1–9, 0 → inp.slot (hotbars)
     if (!play || c === 'KeyR') { play = SIM.spawn(simT); hint.style.opacity = 0; }
@@ -67,6 +69,8 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   addEventListener('blur',()=>{Object.keys(keys).forEach(k=>keys[k]=0);});
   document.getElementById('sound').addEventListener('pointerdown',e=>e.stopPropagation());
   document.getElementById('sound').addEventListener('click',()=>{document.getElementById('sound').textContent='ЗВУК: '+(AUDIO.toggle()?'ВКЛ':'ВЫКЛ');});
+  document.getElementById('shake').addEventListener('pointerdown',e=>e.stopPropagation());
+  document.getElementById('shake').addEventListener('click',()=>{SCENE.shakeEnabled=!SCENE.shakeEnabled;document.getElementById('shake').textContent='ТРЯСКА: '+(SCENE.shakeEnabled?'ВКЛ':'ВЫКЛ');});
   document.querySelectorAll('[data-key]').forEach(b=>{b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();b.setPointerCapture(e.pointerId);dispatchEvent(new KeyboardEvent('keydown',{code:b.dataset.key}));});b.addEventListener('pointerup',e=>{e.preventDefault();e.stopPropagation();dispatchEvent(new KeyboardEvent('keyup',{code:b.dataset.key}));});b.addEventListener('pointercancel',()=>dispatchEvent(new KeyboardEvent('keyup',{code:b.dataset.key})));});
   // pointer in view pixels (VW×VH); click is true for exactly one sim step
   const cv = document.getElementById('c'), ptr = { x: VW / 2, y: VH / 2, down: 0, click: 0 }, pend = { slot: 0, wheel: 0 };
@@ -84,9 +88,9 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     simT += dt;
     if (play) {
       acc += dt;
-      const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
+      const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW || upPulse, down: keys.ArrowDown || keys.KeyS || downPulse,
         jump: keys.Space || jumpPulse, act: keys.KeyX || keys.KeyJ || keys.Enter || actionPulse, px: ptr.x, py: ptr.y, press: ptr.down, click: ptr.click, slot: pend.slot, wheel: pend.wheel };
-      while (acc >= SIM.DT) { SIM.step(play, inp); jumpPulse = actionPulse = 0; inp.click = ptr.click = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; acc -= SIM.DT; }
+      while (acc >= SIM.DT) { SIM.step(play, inp); jumpPulse = actionPulse = upPulse = downPulse = 0; inp.click = ptr.click = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; acc -= SIM.DT; }
       if (SIM.outOfPlay && SIM.outOfPlay(play)) play = SIM.respawn ? SIM.respawn(play, simT) : SIM.spawn(simT);
       SCENE.state = play;
     } else SCENE.state = null;

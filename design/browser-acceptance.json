@@ -1,0 +1,17 @@
+{
+  "errors": [],
+  "panel": 1,
+  "transitionCount": 1,
+  "learn": {
+    "jump": true,
+    "crouch": true,
+    "roll": true,
+    "ledge": true,
+    "climb": true,
+    "pipe": true,
+    "shimmy": true,
+    "drop": true
+  },
+  "grounded": true,
+  "mode": "idle"
+}
