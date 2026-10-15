@@ -1,0 +1,10 @@
+(function(){
+ let ctx=null,enabled=true,last=-1,clock=0;
+ function unlock(){try{if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();ctx.resume();}catch(e){enabled=false;}}
+ addEventListener('keydown',unlock,{once:true});addEventListener('pointerdown',unlock,{once:true});
+ function tone(f,d,type='square',volume=.035,fall=1){if(!ctx||!enabled)return;const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(f,ctx.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(20,f*fall),ctx.currentTime+d);g.gain.setValueAtTime(volume,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+d);o.connect(g).connect(ctx.destination);o.start();o.stop(ctx.currentTime+d);}
+ function noise(d,volume=.06){if(!ctx||!enabled)return;const b=ctx.createBuffer(1,ctx.sampleRate*d,ctx.sampleRate),data=b.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*(1-i/data.length);const src=ctx.createBufferSource(),g=ctx.createGain(),f=ctx.createBiquadFilter();src.buffer=b;f.type='lowpass';f.frequency.value=2400;g.gain.value=volume;src.connect(f).connect(g).connect(ctx.destination);src.start();}
+ window.AUDIO={toggle(){unlock();enabled=!enabled;return enabled;},update(S,play){if(!play||!ctx||!enabled)return;if(S.t<last){last=-1;clock=0;}for(const e of S.ev){if(e.t<=last)continue;if(e.k==='hit'){noise(.1);tone(130,.12,'sawtooth',.045,.4);}if(e.k==='break'){noise(.22,.08);tone(90,.14,'triangle',.06,.6);}if(e.k==='swing')noise(.075,.018);if(e.k==='jump')tone(230,.16,'square',.02,2);if(e.k==='land')noise(.07,.02);if(e.k==='hurt'){tone(150,.2,'sawtooth',.045,.4);}if(e.k==='heal'){tone(660,.1,'triangle');setTimeout(()=>tone(990,.17,'triangle'),90);}if(e.k==='vault'){tone(330,.3,'triangle',.04,2.6);}if(e.k==='page')tone(660,.22,'triangle');}last=S.t;
+ if(S.t>clock){clock=S.t+.23;const pattern=[110,110,164.81,110,146.83,110,196,164.81],step=Math.floor(S.t/.23);tone(pattern[step%8],.15,'triangle',.018);if(step%2===0)tone(55,.09,'sine',.035,.6);}
+ }};
+})();
