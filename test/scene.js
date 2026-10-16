@@ -80,10 +80,11 @@
   if(window.AUDIO)AUDIO.update(st,S.state!==null);
  };
  S.QA=()=>{const copy=s=>JSON.parse(JSON.stringify(s)),base=SIM.create(),states=[['match',base]],cycles={};
-  for(const mode of ['crouch','roll','hang','pipe','climb','jump','fall']){const s=copy(base);s.mode=mode;s.grounded=!['hang','pipe','climb','jump','fall'].includes(mode);if(mode==='hang'||mode==='climb'){s.x=672;s.y=676;s.grip={kind:'ledge',id:'ledge',x:700,y:430};}if(mode==='pipe'){s.x=960;s.y=456;s.grip={kind:'pipe',x:960,y:210};}if(mode==='jump'||mode==='fall')s.y=570;states.push([mode,s]);}
+  for(const mode of ['crouch','roll','hang','pipe','climb','jump','fall']){const s=copy(base);s.mode=mode;s.grounded=!['hang','pipe','climb','jump','fall'].includes(mode);if(mode==='hang'||mode==='climb'){s.x=672;s.y=676;s.grip={kind:'ledge',id:'ledge',x:700,y:430};}if(mode==='pipe'){s.x=960;s.y=456;s.grip={kind:'pipe',x:960,y:210};}if(mode==='jump'||mode==='fall'){s.y=570;s.vy=mode==='jump'?-600:500;}states.push([mode,s]);}
   for(const t of [.12,.32,.60,.90]){const tr={t,start:1230,grip:[1338,490]},pose=SIM.transitionPose(tr),s=copy(base);Object.assign(s,{x:pose.x,y:pose.y,t,grounded:false,mode:'vault',transition:tr,cam:SIM.STRIDE*Math.max(0,Math.min(1,(t-.24)/.62))});states.push(['vault_'+Math.round(t*100),s]);}
   const second=copy(base);second.panel=1;second.x=SIM.STRIDE+270;second.cam=SIM.STRIDE;states.push(['landing_second',second]);
   for(const face of [1,-1])cycles['hero_'+(face===1?'right':'left')]=Array.from({length:36},(_,i)=>({...copy(base),x:300+face*i*4,face,mode:'run',gait:i/36*TAU,move:1,t:i/36*.45}));
   return {states,cycles,subject:{hero_right:'hero',hero_left:'hero'},sprites:{hero_right:['hero_body','hero_upper','hero_fore','hero_thigh','hero_shin'],hero_left:['hero_body','hero_upper','hero_fore','hero_thigh','hero_shin']},box:(n,s)=>[s.x-100,s.y-235,200,245],actors:['hero'],anim:{steam:{on:Array.from({length:8},(_,i)=>({...copy(base),t:10+i/60})),off:Array.from({length:8},(_,i)=>({...copy(base),t:10+i/60,fx:false})),box:[165,150,100,170],min:.001}}};
  };
 })();
+
