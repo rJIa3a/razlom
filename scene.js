@@ -15,26 +15,42 @@
    const weight=a.grip&&!a.climb?clamp((clock-(a.grip.t||0))/.14,0,1):1,q=weight*weight*(3-2*weight),face=a.face||1,x=lerp(a.grip?.fromX??a.x,a.x,q)-cam,y=lerp(a.grip?.fromY??a.y,a.y,q),enemy=who==='mutant',id=enemy?a.id:'hero',death=clamp((a.dead||0)/.7,0,1),fade=1-death;
    if(fade<=0)return;
    const hurt=a.hurt>0,u={alpha:fade*(hurt&&Math.floor(clock*26)%2?.6:1)},far={alpha:u.alpha,tint:[.43,.38,.62,.35]},move=a.move||0,g=a.gait||0;
-   const compression=tr?SIM.transitionPose(tr).compression:a.grounded?12*Math.max(0,1-(clock-(a.landAt??-10))/.16):0;
-   const low=a.mode==='crouch'||a.mode==='roll', bob=move*2.5*Math.cos(g*2), hips=[x,y-(low?40:98)+death*66+bob+compression],shoulder=[x-face*22,hips[1]-(low?34:49)],air=!a.grounded;
-   if(low){hips[0]-=face*12;shoulder[0]=hips[0]+face*26;shoulder[1]=hips[1]-47;}
+   const landing=a.grounded?Math.max(0,1-(clock-(a.landAt??-10))/.24):0;
+   const prep=tr?(tr.t<.18?Math.sin(tr.t/.36*Math.PI):Math.max(0,1-(tr.t-.18)/.08)):0,settle=tr&&tr.t>=.86?Math.max(0,1-(tr.t-.86)/.18):0;
+   const compression=38*Math.max(landing,settle)+32*prep;
+   const low=a.mode==='crouch'||a.mode==='roll',air=!a.grounded;
+   const pipe=a.grip?.kind==='pipe'&&!a.climb,hangPhase=(a.hangTravel||0)/80*TAU;
+   const bob=move*2.5*Math.cos(g*2),hips=[x,y-(low?40:98)+death*66+bob+compression];
+   if(pipe){hips[0]+=8*Math.sin(hangPhase);hips[1]+=4*Math.cos(hangPhase*2);}
+   let tilt=low?.92:Math.max(landing,settle)*.43+prep*.48;
+   if(air&&!a.grip&&!tr)tilt=(a.vy<0?.24:-.13);
+   if(pipe)tilt=.12*Math.sin(hangPhase);
+   if(low)hips[0]-=face*12;
+   const shoulder=low?[hips[0]+face*26,hips[1]-47]:[hips[0]+face*(-22*Math.cos(tilt)+49*Math.sin(tilt)),hips[1]-22*Math.sin(tilt)-49*Math.cos(tilt)];
    rigTransform=a.mode==='roll'?M.of(M.t(x,y-65),M.r(face*TAU*clamp(1-(a.roll||0)/.46,0,1)),M.t(-x,-(y-65))):null;
    let nearFoot=foot(g,0,move,x,y,face),farFoot=foot(g,.5,move,x,y,face);
-   if(air){const tuck=tr?1:clamp(1-Math.abs(a.vy||0)/750,.15,1);const k=tr?Math.min(clamp(tr.t/.3,0,1),clamp((SIM.TRANSITION_DURATION-tr.t)/.18,0,1)):1,w=k*k*(3-2*k);nearFoot=[lerp(nearFoot[0],x+face*26,w),lerp(nearFoot[1],y-8-16*tuck,w)];farFoot=[lerp(farFoot[0],x-face*29,w),lerp(farFoot[1],y-12-27*tuck,w)];}
+   if(air&&!a.grip){const tuck=tr?Math.sin(clamp((tr.t-.32)/.54,0,1)*Math.PI):clamp(1-Math.abs(a.vy||0)/700,0,1);
+    const blend=tr?clamp((tr.t-.18)/.16,0,1)*clamp((.86-tr.t)/.12,0,1):1;
+    nearFoot=[lerp(nearFoot[0],x+face*(37+17*tuck),blend),lerp(nearFoot[1],y-9-57*tuck,blend)];
+    farFoot=[lerp(farFoot[0],x-face*(27-12*tuck),blend),lerp(farFoot[1],y-22-60*tuck,blend)];
+   }
+   if(landing>0||prep>0||settle>0){const w=Math.max(landing,prep,settle);nearFoot=[x+face*(18+17*w),y];farFoot=[x-face*(18+14*w),y];}
    const at=a.attack||0,progress=enemy?1-at/.48:1-at/.36,strike=at>0?(enemy?(progress<.5?-.25*Math.sin(progress*2*Math.PI):Math.sin((progress-.5)*2*Math.PI)):Math.sin(clamp(progress/.94,0,1)*Math.PI)):0;
    let nearHand=[shoulder[0]+face*28-(nearFoot[0]-x)*.45*move,shoulder[1]+51],farHand=[shoulder[0]-face*18-(farFoot[0]-x)*.45*move,shoulder[1]+53];
    if(at>0){nearHand=[shoulder[0]+face*(28+strike*66),shoulder[1]+34-strike*24];farHand=[shoulder[0]+face*24,shoulder[1]+24];}
-   if(air&&!tr){nearHand=[x+face*36,y-220];farHand=[shoulder[0]-face*25,shoulder[1]+18];}
+   if(air&&!tr){const rise=clamp(-(a.vy||0)/600,0,1);nearHand=[x+face*36,y-220];farHand=[shoulder[0]-face*(38-15*rise),shoulder[1]+30-65*rise];}
    if(tr){const p=SIM.transitionPose(tr),k=clamp((SIM.TRANSITION_DURATION-tr.t)/.18,0,1),end=k*k*(3-2*k),free=[lerp(nearHand[0],shoulder[0]+face*55,end),lerp(nearHand[1],shoulder[1]-42,end)],grip=[tr.grip[0]-cam,tr.grip[1]];let w=p.phase<.30?clamp((p.phase-.18)/.12,0,1):p.phase<.36?1:1-clamp((p.phase-.36)/.10,0,1);w=w*w*(3-2*w);nearHand=[lerp(free[0],grip[0],w),lerp(free[1],grip[1],w)];farHand=[lerp(farHand[0],shoulder[0]-face*42,end),lerp(farHand[1],shoulder[1]-21,end)];}
+   if(tr&&tr.t<.18){nearHand=[shoulder[0]-face*22,shoulder[1]+63];farHand=[shoulder[0]-face*46,shoulder[1]+34];}
+   if(tr&&tr.t>=.86){nearHand=[shoulder[0]+face*47,shoulder[1]+51];farHand=[shoulder[0]-face*39,shoulder[1]+36];}
    if(!enemy&&at>0&&a.attackKind===2){nearFoot=[x+face*(30+strike*85),y-35-strike*64];}
-   if(a.grip&&!tr){const hands=SIM.supportHands(a);let w=a.climb?1-clamp((clock-a.climb.start-.18)/.25,0,1):1;w=w*w*(3-2*w);nearHand=[lerp(nearHand[0],hands[0][0]-cam,w),lerp(nearHand[1],hands[0][1],w)];farHand=[lerp(farHand[0],hands[1][0]-cam,w),lerp(farHand[1],hands[1][1],w)];const swing=5*Math.sin(clock*3+a.gait);nearFoot=[x+face*21+swing,y-14];farFoot=[x-face*18+swing,y-25];if(w===1){L.anchor('grip',[hands[0][0]-cam,hands[0][1]],nearHand,1);L.anchor('grip-far',[hands[1][0]-cam,hands[1][1]],farHand,1);};}
+   if(a.grip&&!tr){const hands=SIM.supportHands(a);let w=a.climb?1-clamp((clock-a.climb.start-.18)/.25,0,1):1;w=w*w*(3-2*w);nearHand=[lerp(nearHand[0],hands[0][0]-cam,w),lerp(nearHand[1],hands[0][1],w)];farHand=[lerp(farHand[0],hands[1][0]-cam,w),lerp(farHand[1],hands[1][1],w)];const swing=pipe?15*Math.sin(hangPhase-.65):5*Math.sin(clock*3+a.gait);nearFoot=[hips[0]+face*30+swing,y-32-(pipe?13*Math.cos(hangPhase):0)];farFoot=[hips[0]-face*12+swing,y-47+(pipe?12*Math.cos(hangPhase):0)];if(w===1){L.anchor('grip',[hands[0][0]-cam,hands[0][1]],nearHand,1);L.anchor('grip-far',[hands[1][0]-cam,hands[1][1]],farHand,1);};}
    if(a.mode==='roll'){nearFoot=[x+face*25,y-30];farFoot=[x-face*15,y-45];nearHand=[x+face*15,y-61];farHand=[x-face*17,y-65];}
    const nearKnee=ik(hips,nearFoot,56,56,-face),farKnee=ik(hips,farFoot,56,56,-face);
    const nearElbow=ik(shoulder,nearHand,55,56,face),farElbow=ik(shoulder,farHand,55,56,-face);
    const leg=(k,f,un)=>{bone(who+'_thigh',hips,k,enemy?34:28,face,un);bone(who+'_shin',k,f,enemy?37:32,face,un);};
    const arm=(e,h,un)=>{bone(who+'_upper',shoulder,e,enemy?28:24,face,un);bone(who+'_fore',e,h,enemy?27:24,face,un);};
    L.shadow(x,ground+3,43,9,.42*fade*(a.grip?.3:1));leg(farKnee,farFoot,far);arm(farElbow,farHand,far);leg(nearKnee,nearFoot,u);
-   if(ASSETS[who+'_body']){if(low){let body=M.of(M.t(hips[0],hips[1]+3),M.s(face,1),M.r(.92));if(rigTransform)body=M.mul(rigTransform,body);L.sprite(who+'_body',0,0,{m:body,w:78,h:113,pivot:[39,105],u});}else L.sprite(who+'_body',x-39,y-202+death*66+bob+compression,{w:78,h:113,flip:face<0,u:{...u,sway:[.0015,8,clock*2,1]}});}
+   if(ASSETS[who+'_body']){let body=M.of(M.t(hips[0],hips[1]+(low?3:1)),M.s(face,1),M.r(tilt));if(rigTransform)body=M.mul(rigTransform,body);L.sprite(who+'_body',0,0,{m:body,w:78,h:113,pivot:[39,105],u});}
    arm(nearElbow,nearHand,u);
    for(const [name,p] of Object.entries({ground:[x,y],top:[x,y-202+bob],hip:hips,hipL:hips,hipR:hips,head:[x,y-181+bob],shoulder,shL:shoulder,shR:shoulder,elbowL:farElbow,elbowR:nearElbow,handL:farHand,handR:nearHand,kneeL:farKnee,kneeR:nearKnee,ankleL:farFoot,ankleR:nearFoot,heelL:farFoot,heelR:nearFoot,groundL:[farFoot[0],y],groundR:[nearFoot[0],y],footL:farFoot,footR:nearFoot,grip:nearHand,tip:nearHand}))L.joint(id,name,rigTransform&&name!=='ground'?M.ap(rigTransform,p):p);
    if(tr&&SIM.transitionPose(tr).grip)L.anchor('frame-grip',[tr.grip[0]-cam,tr.grip[1]],nearHand,1);
@@ -87,4 +103,5 @@
   return {states,cycles,subject:{hero_right:'hero',hero_left:'hero'},sprites:{hero_right:['hero_body','hero_upper','hero_fore','hero_thigh','hero_shin'],hero_left:['hero_body','hero_upper','hero_fore','hero_thigh','hero_shin']},box:(n,s)=>[s.x-100,s.y-235,200,245],actors:['hero'],anim:{steam:{on:Array.from({length:8},(_,i)=>({...copy(base),t:10+i/60})),off:Array.from({length:8},(_,i)=>({...copy(base),t:10+i/60,fx:false})),box:[165,150,100,170],min:.001}}};
  };
 })();
+
 

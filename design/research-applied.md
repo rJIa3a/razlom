@@ -7,3 +7,4 @@ Applied: separate exit preparation, short frame hand contact, tucked flight, ext
 Original prototype extensions retained: manual Up to climb a ledge, Down to release, responsive immediate jump input, restricted air steering. No combat or additional level introduced. WebGL and iPhone Canvas2D use the same simulation and rig.
 
 Validation: complete route in both renderers; simulation acceptance; fixed-world pipe hand assertions; transition endpoints; automatic UI, anchor, rig and animation QA; independent motion critic. Physical iPhone testing remains with the user.
+`nSecond pass: authored torso rotations at a fixed pelvis, 38px landing knee compression, wide planted landing feet, 60px apex leg tuck, separate ascent/descent arm pose, pipe pelvis sway and alternating knee heights. Motion critic confirmed visible changes and preserved contacts. Preparation extends smoothly into takeoff over 80ms.
